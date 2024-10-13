@@ -10,22 +10,21 @@ import subprocess
 import time
 from selenium import webdriver
 from lxml import etree
-from selenium.webdriver.edge.service import Service
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from xhs_def import get_fan, get_intro, get_like
+
 xhs_name, xhs_lj = [], []
 
 
-def init():
+def init(url):
     """
     初始化浏览器
     :return:
     """
-    target_url = 'https://www.xiaohongshu.com/user/profile/60d15cbd000000000100b5e3'
+    target_url = url
     subprocess.Popen([
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",  # 使用原始字符串
-        '--remote-debugging-port=9222',
-        '--user-data-dir=D:/EdgeDev',  # 指定一个用户数据目录
+        '--remote-debugging-port=9223',
+        '--user-data-dir=D:/EdgeDev1',  # 指定一个用户数据目录
         target_url  # 直接打开目标网页
     ])  # 使用 shell=True 来避免权限问题shell=True
 
@@ -69,6 +68,7 @@ def extract_attributes():
     //*[@id="global"]/div[2]/div[2]/div/div[3]/div[2]/div/a/div/div[2]/div[1]/div
     """
 
+
 """
 extract_attributes()
 headers = ('小红书名称', '链接')
@@ -85,33 +85,50 @@ with open('小红书数据.json', 'w', encoding='utf_8')as f:
 
 print('over!')
 """  # 爬取小红书博主名称和所对应的链接
+# init('https://www.xiaohongshu.com/search_result?keyword=%25E6%25B0%25B4%25E6%259E%259C&source=web_search_result_notes')
+
 
 def get_f():
+    """
+    获取小红书名称的简介，粉丝，点赞
+    :return:
+    """
+    # 使用 Selenium 连接到 Edge 浏览器
+    options = webdriver.EdgeOptions()
+    options.add_experimental_option("debuggerAddress", "127.0.0.1:9223")  # 连接到远程调试地址
+    driver = webdriver.Edge(options=options)
+
+    # 使用 JavaScript 在新标签页中打开一个新的链接
+    driver.get('https://www.baidu.com')
+    all_tabs = driver.window_handles
+    print(len(all_tabs))
+    driver.switch_to.window(all_tabs[-1])  # 跳转到最新打开的标签页面
+
     # 打开 JSON 文件并读取内容
     with open('小红书数据.json', 'r', encoding='utf-8') as f:
         data = json.load(f)
+
     # 遍历 JSON 数据
-    for entry in data:
+    # 直接从索引 具体位置 开始处理（因为索引从 0 开始）
+    for i in range(120, len(data)):
+        entry = data[i]
         a = (entry['链接'])
-        break
+        driver.get(a)
+        print("当前爬取链接", a)
+        # 获取简介
+        intro = get_intro(driver)
+        # 获取粉丝
+        fan = get_fan(driver)
+        # 获取点赞
+        like = get_like(driver)
+        # 插入新属性到第i个元素
+        data[i]["简介内容"] = intro  # 新属性
+        data[i]["粉丝"] = fan  # 新属性
+        data[i]["点赞"] = like  # 新属性
+        # 保存到文件
+        with open('小红书数据.json', 'w', encoding='utf-8') as fp:
+            json.dump(data, fp, ensure_ascii=False, indent=4)
+        print("当前索引为：" + str(i))
+        print("=====================\n")
 
-
-# 使用 Selenium 连接到 Edge 浏览器
-options = webdriver.EdgeOptions()
-options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")  # 连接到远程调试地址
-driver = webdriver.Edge(options=options)
-
-all_tabs = driver.window_handles
-print(len(all_tabs))
-print(driver.current_url)
-driver.switch_to.window(all_tabs[0])
-print(driver.title)
-
-# 使用 JavaScript 在新标签页中打开一个新的链接
-new_url = 'https://www.baidu.com'  # 新标签页中要打开的链接
-driver.execute_script(f"window.open('{new_url}', '_blank');")
-time.sleep(2)
-all_tabs = driver.window_handles
-print(len(all_tabs))
-driver.switch_to.window(all_tabs[0])
-print(driver.title)
+# get_f()
